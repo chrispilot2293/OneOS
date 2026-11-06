@@ -106,6 +106,21 @@ AVAILABLE_KB=$(df -Pk "$WORK" | awk 'NR==2 {print $4}')
 MIN_GB="${ONEOS_MIN_GB:-65}"
 [ "$AVAILABLE_KB" -lt $((MIN_GB * 1048576)) ] && \
   die "only $((AVAILABLE_KB / 1048576)) GB free in $WORK; the build needs ~$MIN_GB GB at peak (the firmware package, ~20 GB of extracted payload partitions, a ~20 GB staging copy, and the ~14.7 GB GSI). Free space, point ONEOS_BUILD_DIR elsewhere, or lower ONEOS_MIN_GB if you know better."
+
+# WSL only: the Linux disk is a VHDX that grows on a Windows drive, so
+# free space inside can be more than the Windows drive can actually back
+# - a full host drive shows up mid-build as I/O errors and a bus error.
+case "$(uname -r)" in *microsoft*|*WSL2*)
+  if [ -d /mnt/c ]; then
+    WIN_KB=$(df -Pk /mnt/c 2>/dev/null | awk 'NR==2 {print $4}')
+    [ -n "$WIN_KB" ] && [ "$WIN_KB" -lt $((MIN_GB * 1048576)) ] && \
+      say "WARNING: only $((WIN_KB / 1048576)) GB free on the Windows drive \
+(mounted /mnt/c). The WSL disk grows on the Windows drive: if that fills \
+up mid-build, the build dies with I/O errors / a bus error even though \
+'df -h' in here looked fine. Free ~$MIN_GB GB there too (or move the \
+WSL distro to another drive) if the distro's disk lives on that drive."
+  fi ;;
+esac
 [ -n "$FIRMWARE" ] || [ -n "$PREBUILT" ] || {
   echo
   say "no --firmware and no --prebuilt given."
@@ -239,13 +254,19 @@ source build.)"
   fi
 
   # Stale staging from an interrupted run can hold tens of GB; it is
-  # transient, so drop it before extracting again.
+  # transient, so drop it before extracting again. The same goes for a
+  # partially written image from an interrupted mke2fs step.
   if [ -d "$REPO/mysticgsi/tmp" ]; then
     say "removing stale MysticGSI staging (tmp/)"
     rm -rf "$REPO/mysticgsi/tmp" || \
       die "could not remove $REPO/mysticgsi/tmp - if this complains about a
 read-only file system, the WSL disk hit I/O errors: run 'wsl --shutdown'
 from Windows, restart WSL, and check free space below."
+  fi
+  if [ -d "$REPO/mysticgsi/out/$GSI_NAME" ]; then
+    say "removing the previous $GSI_NAME output (it is about to be rebuilt)"
+    rm -rf "$REPO/mysticgsi/out/$GSI_NAME" || \
+      die "could not remove $REPO/mysticgsi/out/$GSI_NAME (read-only?)"
   fi
 
   say "building the GSI with MysticGSI (this extracts and repacks the whole"
