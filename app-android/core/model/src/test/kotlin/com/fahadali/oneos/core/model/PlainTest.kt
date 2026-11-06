@@ -64,7 +64,7 @@ class PlainTest {
     )
 
     /** Technical words and system names a plain text never has (the system's own name is taken out first). */
-    private val forbidden = Regex("""ColorOS|OPPO|Lineage|Pixel|Find N6|Find X9|SHA|stage|installd|su -c|\buid\b|system\.raw|\.img|profile id""")
+    private val forbidden = Regex("""ColorOS|OPPO|Lineage|Pixel(?! Fold)|Find N6|Find X9|SHA|stage|installd|su -c|\buid\b|system\.raw|\.img|profile id""")
 
     private fun clean(m: PlainMessage, image: ImageRef?): String {
         var t = "${m.title}\n${m.line}\n${m.actionLabel.orEmpty()}"
@@ -132,7 +132,7 @@ class PlainTest {
         // The phone list comes from the profiles: every name while they fit one line (0.4.28),
         // the families once they do not (0.4.29, with the A57 and Z Flip5).
         assertEquals(
-            "OneOS works on 30 Galaxy phones so far: Z Fold, S, Z Flip and A models; the README lists them.",
+            "OneOS works on 30 Galaxy phones and Pixel Fold so far: Z Fold, S, Z Flip and A models; the README lists them.",
             of(SwitchGates.ID_PROFILE, SwitchGates.R_PROFILE_NONE).line,
         )
         assertEquals("the Galaxy Z Fold (F8U), S26 Ultra and S25", Plain.phoneList(listOf(Profiles.F8U, Profiles.S_ULTRA_8850, Profiles.S_8750)))

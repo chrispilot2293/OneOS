@@ -4072,8 +4072,25 @@ bind_host_app() {
     [ -d "$1" ] && [ -d "$2" ] || { echo "!!! cannot replace $2 with $1"; return 0; }
     $BB mount --bind "$1" "$2" && echo "Host $(basename "$1") -> $2"
 }
-bind_host_app /system/priv-app/NetworkStackGoogle "$ROOTFS/system/priv-app/NetworkStack"
-bind_host_app /system/app/CaptivePortalLoginGoogle "$ROOTFS/system/app/CaptivePortalLogin"
+hide_guest_app() { # <dir>: a guest app dir the host cannot stand (wrong signer for a shared uid)
+    [ -d "$1" ] || return 0
+    $BB mount --make-private "$(dirname "$1")" 2>/dev/null
+    $BB mount -t tmpfs -o ro,size=4k,mode=755 tmpfs "$1" && echo "Hid guest $1 (no host replacement; the host APEX serves the uid)"
+}
+if [ -d /system/priv-app/NetworkStackGoogle ]; then
+    bind_host_app /system/priv-app/NetworkStackGoogle "$ROOTFS/system/priv-app/NetworkStack"
+    bind_host_app /system/app/CaptivePortalLoginGoogle "$ROOTFS/system/app/CaptivePortalLogin"
+else
+    # felix (0.4.58-felix): a Pixel host has no NetworkStackGoogle app - its
+    # network stack ships as the Google-signed com.google.android.networkstack
+    # APEX, which the /apex bind loop below already presents to the guest. The
+    # guest's own OPPO-signed NetworkStack/CaptivePortalLogin must then be
+    # hidden instead, or the shared uid android.uid.networkstack has two
+    # signers and the guest's system_server dies ("Signature mismatch for
+    # shared uid android.uid.networkstack").
+    hide_guest_app "$ROOTFS/system/priv-app/NetworkStack"
+    hide_guest_app "$ROOTFS/system/app/CaptivePortalLogin"
+fi
 if [ -d "$GUEST_SYSTEM_EXT/priv-app/CellBroadcastService" ]; then
     $BB mount -t tmpfs -o ro,size=4k,mode=755 tmpfs "$GUEST_SYSTEM_EXT/priv-app/CellBroadcastService" && \
         echo "Hid guest system_ext/priv-app/CellBroadcastService"

@@ -118,8 +118,12 @@ IMAGE_SDK=37
 # SHA-256 of the method lines of switcher/patches/host_installd.txt: the
 # installd codes the guard jars carry (InstalldExpected.SHA256).
 INSTALLD_SHA=791e52c441b62944f88244a2610b9433c869c9c3916a49f43d14552de82280f2
-# Session scripts from switcher/assets plus the expected installd table.
-SCRIPTS="oneos_switch.sh boot_status.sh OneOSBootStatus.dex oneos_boot_icon.png guest_prepare.sh guest_start.sh guest_props.sh return_to_oneui.sh check_host_apex.sh bridges.sh fold8_coloros.sh OneOSFold8Geometry.dex fold8_pixel.sh guest_google.sh zygote_exec OneOSEdmStub.dex oneos_btaudio OneOSOverlayDimen.dex host_installd.txt"
+# felix (0.4.58-felix): the Pixel hosts' own table, AOSP Android 17's
+# installd (37 methods; InstalldExpected.PIXEL_17). The felix sets' guard
+# jars carry these codes, and a Pixel Fold is checked against this one.
+INSTALLD_SHA_PIXEL=487d024a5aa681cb8f3ad237ba6589289e8d3df979cb517c1169f989eaea1f9a
+# Session scripts from switcher/assets plus the expected installd tables.
+SCRIPTS="oneos_switch.sh boot_status.sh OneOSBootStatus.dex oneos_boot_icon.png guest_prepare.sh guest_start.sh guest_props.sh return_to_oneui.sh check_host_apex.sh bridges.sh fold8_coloros.sh OneOSFold8Geometry.dex fold8_pixel.sh guest_google.sh zygote_exec OneOSEdmStub.dex oneos_btaudio OneOSOverlayDimen.dex host_installd.txt host_installd_pixel17.txt"
 SET_COMMON="services_patched.jar oplus-services_patched.jar vold_patched service.incremental_patched.so OneOSGuest.apk ims-ext-common_patched.jar oplus-telephony-common_patched.jar surfaceflinger_patched guards.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img"
 # The Pixel sets (the Fold's 0.3.7, the S26 Ultra's 0.4.10, the Pixel 9 Pro XL's 0.4.22): services.jar with the guest vold as gvld, the signal
 # poll, Pixel's status bar RRO, the in-guest OneOS app and its own payloads.
@@ -127,6 +131,21 @@ SET_PIXEL="services_patched.jar framework_patched.jar telephony-common_patched.j
 # Infinity-X (0.4.27): both guard jars, the camera codes, the guest vold, the AOSP
 # signal poll, the IMS backoff, the in-guest app and its own payloads.
 SET_INFINITYX="services_patched.jar oplus-services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar samcam.tar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
+# felix (0.4.58-felix): the Pixel Fold's Infinity-X set. Same guest patches as
+# SET_INFINITYX minus everything Samsung-host: the installd guard is built
+# against host_installd_pixel17.txt (AOSP 17, 37 methods) and there is no
+# framework_patched.jar or libcamera_client_patched.so with One UI's camera
+# codes (the Pixel's camera service is AOSP's, so the guest's own match), no
+# samcam.tar (One UI's camera app), no telephony-common_patched.jar (Samsung
+# host radio SMS fixes) and no OneOSPixelStatusBar.apk (Samsung vendor inset
+# gaps). Keep the file lists equal to PackageSets.kt (StageScriptTest).
+SET_INFINITYXFELIX="services_patched.jar oplus-services_patched.jar vold_patched service.incremental_patched.so guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
+# felix: the Pixel Fold's ColorOS Find X9 Ultra IN set - the X9U IN set's
+# guest files minus the Samsung-host ones (see above), plus the fold grid
+# (the Pixel Fold is a fold, unlike the S Ultra twins), the cellbroadcast
+# payload and the Theme Store without its brand check. As with the S Ultra
+# set, the row in set_files names SET_COMMON and the extras, so the audit
+# reads the same list the shell expands.
 # The HyperOS set (docs/hyperos.md; every phone from 0.4.31): services.jar and Xiaomi's two guarded jars, the signal poll, the
 # QTI IMS backoff, the in-guest OneOS app and the image's payloads. No gvld pins yet.
 SET_HYPEROS="services_patched.jar miui-services_patched.jar apprecovery.proinstaller_patched.jar framework_patched.jar miui-wifi-service_patched.jar miui-telephony-common_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so guards.txt oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk ims-ext-common_patched.jar OneOSGuest.apk socket_exec libaudiohal_aidl_patched.so MiWallpaper_patched.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img libsurfaceflinger_patched.so"
@@ -182,6 +201,10 @@ profile_info() {
         a16-4g) echo "SM-A165 a16 MT6789 bar" ;;
         a16) echo "SM-A166 a16x s5e8535 bar" ;;
         s-9965) echo "SM-S942 m1s s5e9965 bar" ;;
+        # felix (0.4.58-felix): the Google Pixel Fold host. The model prefix is
+        # one word (the app's is the same upper-cased; the codename and the
+        # chip pin the phone, all three must match).
+        felix) echo "PIXEL felix GS201 fold" ;;
         *) return 1 ;;
     esac
 }
@@ -191,6 +214,11 @@ profile_info() {
 # image; the staged image decides the set.
 profile_set() {
     case "$1 $2" in
+        # felix (0.4.58-felix): the Pixel Fold's guests, each with its own
+        # felix set (the installd guard built against the Pixel's AOSP 17
+        # table; no Samsung camera, brightness or radio patches).
+        "felix infinityx41-findx9u") echo infinityx-felix ;;
+        "felix coloros17-findx9u-in") echo x9u-in-felix ;;
         "f8u coloros17-findn6") echo n6-f8u ;;
         "f8u pixel11fold-yogi") echo pixel-f8u ;;
         "f8u hyperos-lhasa") echo hyper-f8u ;;
@@ -353,6 +381,8 @@ set_files() {
         nothing-f8u) echo "$SET_NOTHING" ;;
         pixel9-sultra) echo "$SET_PIXEL libcameracompatbilityinfo_patched.so" ;;
         infinityx) echo "$SET_INFINITYX" ;;
+        infinityx-felix) echo "$SET_INFINITYXFELIX" ;;
+        x9u-in-felix) echo "$SET_COMMON OneOSWallpapersFoldGrid.apk cellbroadcast_payload.img KeKeThemeSpace_patched.apk" ;;
         *) return 1 ;;
     esac
 }
@@ -368,6 +398,8 @@ set_image() {
         nothing-f8u) echo nothingos5-metroid ;;
         pixel9-sultra) echo pixel9proxl-komodo ;;
         infinityx) echo infinityx41-findx9u ;;
+        infinityx-felix) echo infinityx41-findx9u ;;
+        x9u-in-felix) echo coloros17-findx9u-in ;;
         *) return 1 ;;
     esac
 }
@@ -625,13 +657,18 @@ check_env() { # <file> <form> <profile> <image>
 }
 # host_installd.table (InstalldTableFormat 1): this phone's fingerprint, the
 # source jar's SHA-256, a valid trailer, and methods equal to the staged
-# host_installd.txt, whose method lines hash to INSTALLD_SHA.
-check_table() { # <file>
+# host_installd.txt, whose method lines hash to INSTALLD_SHA. felix
+# (0.4.58-felix): the felix profiles' sets carry the Pixel's own AOSP 17
+# table instead, so on those the phone is checked against the staged
+# host_installd_pixel17.txt and INSTALLD_SHA_PIXEL.
+check_table() { # <file> [profile]
     f=$1
     [ -f "$f" ] || refuse "host_installd.table missing"
     ge 65536 "$(stat -c %s "$f")" || refuse "host_installd.table is over 64 kB"
-    [ "$(grep -v '^#' "$STAGE/host_installd.txt" 2>/dev/null | sha256sum | cut -d' ' -f1)" = "$INSTALLD_SHA" ] ||
-        refuse "host_installd.txt in the stage is not the table the OneOS jars carry"
+    want_sha=$INSTALLD_SHA; want_table=host_installd.txt
+    if [ "$2" = felix ]; then want_sha=$INSTALLD_SHA_PIXEL; want_table=host_installd_pixel17.txt; fi
+    [ "$(grep -v '^#' "$STAGE/$want_table" 2>/dev/null | sha256sum | cut -d' ' -f1)" = "$want_sha" ] ||
+        refuse "$want_table in the stage is not the table the OneOS jars carry"
     [ "$(sed -n 1p "$f")" = "oneos.installd-table 1" ] || refuse "host_installd.table: bad first line"
     fp=$(getprop ro.build.fingerprint)
     [ -n "$fp" ] && [ "$(sed -n 2p "$f")" = "fingerprint $fp" ] || refuse "host_installd.table is not for this One UI build ($fp)"
@@ -650,7 +687,7 @@ check_table() { # <file>
     [ "$((lines + 0))" -eq $((n + 5)) ] || refuse "host_installd.table: expected $n methods and a trailer"
     [ "$(sed -n "$((n + 5))p" "$f")" = "sha256 $(sed '$d' "$f" | sha256sum | cut -d' ' -f1)" ] ||
         refuse "host_installd.table: the sha256 trailer does not match"
-    [ "$(sed -n "5,$((n + 4))p" "$f" | sha256sum | cut -d' ' -f1)" = "$INSTALLD_SHA" ] ||
+    [ "$(sed -n "5,$((n + 4))p" "$f" | sha256sum | cut -d' ' -f1)" = "$want_sha" ] ||
         refuse "this phone's installd table differs from the one the OneOS jars carry"
 }
 # Every staged file of the profile, root's and matching files.sha256; no file
@@ -891,8 +928,9 @@ receive_text() { # <name> <bytes> <max>
 do_table() {
     [ $# -eq 1 ] || usage "table <bytes>"
     receive_text host_installd.table "$1" 65536
-    [ -n "$(received_sum host_installd.txt)" ] || { rm -f "$part"; refuse "host_installd.txt was not received"; }
-    ( check_table "$part" ) || { rm -f "$part"; exit 2; }
+    wt=host_installd.txt; [ "$P_PROFILE" = felix ] && wt=host_installd_pixel17.txt
+    [ -n "$(received_sum "$wt")" ] || { rm -f "$part"; refuse "$wt was not received"; }
+    ( check_table "$part" "$P_PROFILE" ) || { rm -f "$part"; exit 2; }
     mv -f "$part" "$STAGE/host_installd.table" || die "could not put host_installd.table in place"
     say "@@OK table"
 }
@@ -922,7 +960,7 @@ do_finish() {
     [ "$(received_sum system.raw)" = "$P_RAW_SHA" ] || refuse "the image was not received or checked"
     check_raw "$P_RAW_BYTES" "$P_RAW_SHA"
     check_env "$STAGE/session.env" "$P_FORM" "$P_PROFILE" "$P_IMAGE"
-    check_table "$STAGE/host_installd.table"
+    check_table "$STAGE/host_installd.table" "$P_PROFILE"
     printf '%s' "$list" | LC_ALL=C sort -k2 > "$STAGE/files.sha256.tmp" && own "$STAGE/files.sha256.tmp" 0644 &&
         mv -f "$STAGE/files.sha256.tmp" "$STAGE/files.sha256" || die "could not write files.sha256"
     # Every other flat file that is not the sessions' own state goes to the
@@ -1000,7 +1038,7 @@ do_launch() {
     check_files "$names"
     set -- $(image_raw "$M_IMAGE")
     check_raw "$1" "$2"
-    check_table "$STAGE/host_installd.table"
+    check_table "$STAGE/host_installd.table" "$M_PROFILE"
     check_env "$STAGE/session.env" "$form" "$M_PROFILE" "$M_IMAGE"
     find_tools
     [ -n "$BB" ] || refuse "no busybox at the root manager's paths"

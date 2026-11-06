@@ -164,6 +164,10 @@ object PackageSets {
     const val ID_INFINITYX = "infinityx"
     const val ID_NOTHING_F8U = "nothing-f8u"
 
+    /** The felix port's sets (0.4.58-felix): guard jars built against host_installd_pixel17.txt, no Samsung host patches. */
+    const val ID_INFINITYX_FELIX = "infinityx-felix"
+    const val ID_X9U_IN_FELIX = "x9u-in-felix"
+
     /** Never mounted (guest_prepare.sh only keeps the host module); left out of every set. */
     const val TETHERING = "tethering_payload.img"
 
@@ -573,7 +577,62 @@ object PackageSets {
         hasReturnApp = true,
     )
 
-    val ALL: List<PackageSet> = listOf(N6_F8U, X9U_IN_SULTRA, PIXEL_F8U, PIXEL_SULTRA, PIXEL_F8, PIXEL9_SULTRA, INFINITYX, HYPER_F8U, NOTHING_F8U)
+    /**
+     * The felix sets (0.4.58-felix, docs/pixel-fold-host.md): the same guest
+     * patches as their Samsung twins, but built for a Pixel Fold host - the
+     * installd guard jars are made against
+     * switcher/patches/host_installd_pixel17.txt (AOSP Android 17, 37
+     * methods: One UI's table has 85, and only the first six codes agree), and
+     * they carry none of the Samsung-host files: no samcam.tar (One UI's
+     * camera app), no libcamera_client_patched.so or framework_patched.jar
+     * with One UI's camera transaction codes (the Pixel's camera service is
+     * AOSP's, so the guests' own codes are already right), no Samsung IMS
+     * members, no Samsung brightness curve. The guards.txt each build writes
+     * names only the files it actually carries, and guest_prepare.sh takes the
+     * required list from it, so the shorter sets stage cleanly.
+     */
+    val INFINITYX_FELIX = PackageSet(
+        id = ID_INFINITYX_FELIX,
+        imageId = Images.ID_INFINITYX,
+        sourceDir = "out/overlays_infinityx_felix_r1",
+        files = listOf(
+            PackageFile("services_patched.jar", FileRole.GUARD_JAR),
+            PackageFile("oplus-services_patched.jar", FileRole.GUARD_JAR),
+            PackageFile("vold_patched", FileRole.GUARD_EXECUTABLE),
+            PackageFile("service.incremental_patched.so", FileRole.GUARD_LIBRARY),
+            PackageFile("guards.txt", FileRole.GUARDS),
+            PackageFile("ims-ext-common_patched.jar", FileRole.FRAMEWORK_JAR),
+            PackageFile("oneos-telephony.jar", FileRole.INJECTION_JAR),
+            PackageFile("oneos-telephony.sha256", FileRole.INJECTION_SHA256),
+            PackageFile("OneOSPhoneInjection.apk", FileRole.RRO),
+            PackageFile(GUEST_APP, FileRole.GUEST_APP),
+        ) + (COMMON_PAYLOADS + listOf("bt", "nfcservices", "telephonycore", "conscrypt", "profiling", "gmssystem"))
+            .map { PackageFile("${it}_payload.img", FileRole.APEX_PAYLOAD) },
+        // No telephony-common_patched.jar either: its SMS patches exist because
+        // Samsung's host radios answer getSmscAddress and SEND_SMS in ways
+        // AOSP's do not; the Pixel's modem is not one of those.
+        omitted = listOf(TETHERING, CELLBROADCAST, "framework_patched.jar", "libcamera_client_patched.so", "samcam.tar", "OneOSPixelStatusBar.apk", "telephony-common_patched.jar"),
+        approxBytes = 610_000_000L,
+        hasReturnApp = true,
+    )
+
+    val X9U_IN_FELIX = PackageSet(
+        id = ID_X9U_IN_FELIX,
+        imageId = Images.ID_FIND_X9U_IN,
+        sourceDir = "out/overlays_x9u_in_felix_r1",
+        files = COMMON + PackageFile(WALLPAPER_GRID_RRO, FileRole.RRO) + PackageFile(CELLBROADCAST, FileRole.APEX_PAYLOAD) +
+            // 0.4.47: the Theme Store without its brand check (the Find N6 global build's APK).
+            PackageFile(THEME_STORE_APK, FileRole.GUEST_FIX),
+        // No telephony-common_patched.jar (Samsung host radio SMS fixes) and no
+        // Samsung camera files; see INFINITYX_FELIX above. The fold grid is
+        // in it (the felix host is a fold, unlike the S Ultra twins of this
+        // image's set).
+        omitted = listOf(TETHERING, "framework_patched.jar", "libcamera_client_patched.so", "samcam.tar", "telephony-common_patched.jar"),
+        approxBytes = 612_000_000L,
+        hasReturnApp = true,
+    )
+
+    val ALL: List<PackageSet> = listOf(N6_F8U, X9U_IN_SULTRA, PIXEL_F8U, PIXEL_SULTRA, PIXEL_F8, PIXEL9_SULTRA, INFINITYX, HYPER_F8U, NOTHING_F8U, INFINITYX_FELIX, X9U_IN_FELIX)
 
     fun byId(id: String, sets: List<PackageSet> = ALL): PackageSet? = sets.firstOrNull { it.id == id }
 }

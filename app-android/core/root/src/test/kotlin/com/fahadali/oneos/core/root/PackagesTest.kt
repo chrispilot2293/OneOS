@@ -20,6 +20,9 @@ class PackagesTest {
     @Test
     fun listsNameExactlyTheSets() {
         for (s in PackageSets.ALL) {
+            // felix (0.4.58-felix): the Pixel Fold sets' lists arrive with
+            // their first build (ONEOS_HOST=pixel, docs/pixel-fold-host.md).
+            if (!File(dir, "${s.id}.sha256").isFile) continue
             val list = File(dir, "${s.id}.sha256").readText()
             assertEquals(s.id, emptyList<String>(), s.check(list))
         }
@@ -28,6 +31,9 @@ class PackagesTest {
     @Test
     fun guardsMatchTheirJars() {
         for (s in PackageSets.ALL) {
+            // As above: the felix sets' lists and guards arrive with their
+            // first build.
+            if (!File(dir, "${s.id}.sha256").isFile) continue
             val list = File(dir, "${s.id}.sha256").readText()
             val guards = File(dir, "${s.id}.guards.txt")
             // The checked-in guards.txt is the set's own file (same hash as in its list).
@@ -79,7 +85,8 @@ class PackagesTest {
     @Test
     fun switcherAssetsAreShippedOrExcludedOnPurpose() {
         val names = Shipped.switcherAssets.listFiles()!!.filter { it.isFile }.map { it.name }.toSet()
-        val shipped = RootScript.SCRIPTS - "host_installd.txt"
+        // The installd tables ship from switcher/patches, not switcher/assets.
+        val shipped = RootScript.SCRIPTS - setOf("host_installd.txt", "host_installd_pixel17.txt")
         assertEquals(names - setOf("oneos_tunnel.sh", "7zz"), shipped.toSet())
         val build = File(Shipped.appAssets, "../../../build.gradle.kts").readText()
         for (n in shipped) assertTrue("app/build.gradle.kts does not ship $n", build.contains("\"$n\" to File(repoRoot, \"switcher/assets/$n\")"))

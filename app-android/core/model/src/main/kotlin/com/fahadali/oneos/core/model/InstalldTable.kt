@@ -141,9 +141,33 @@ object InstalldTableFormat {
  * switching until a new app build exists.
  */
 object InstalldExpected {
+    /**
+     * One pinned host table: the asset the app ships next to it, its SHA-256
+     * and its method count. [ONE_UI_9] is every Samsung host; [PIXEL_17] is
+     * the Pixel Fold (the felix port, 0.4.58-felix).
+     */
+    data class Pinned(val sha256: String, val methods: Int)
+
     /** SHA-256 of the non-comment lines of switcher/patches/host_installd.txt (F8U F976BXXS3AZIJ; same on S26U and S25U). */
+    @Deprecated("Per-host tables; use pinnedFor(profile)", ReplaceWith("ONE_UI_9.sha256"))
     const val SHA256 = "791e52c441b62944f88244a2610b9433c869c9c3916a49f43d14552de82280f2"
+    @Deprecated("Per-host tables; use pinnedFor(profile)", ReplaceWith("ONE_UI_9.methods"))
     const val METHODS = 85
+
+    val ONE_UI_9 = Pinned(SHA256, 85)
+
+    /**
+     * The Pixel hosts' table (switcher/patches/host_installd_pixel17.txt):
+     * AOSP Android 17's IInstalld as the Pixel builds it - 37 methods (One
+     * UI's has 85, and only the first six codes agree), parcelable-style
+     * createAppData/reconcileSdkData, and none of the dexopt family (Android
+     * 17 moved it to ART Service). Derived from the CP3A.261005.002.A1 train's
+     * own framework.jar.
+     */
+    val PIXEL_17 = Pinned("487d024a5aa681cb8f3ad237ba6589289e8d3df979cb517c1169f989eaea1f9a", 37)
+
+    /** The table a phone's set was built against: Samsung hosts One UI 9's, the Pixel Fold AOSP 17's. */
+    fun pinnedFor(profile: PhoneProfile?): Pinned = if (profile?.id == Profiles.ID_FELIX) PIXEL_17 else ONE_UI_9
 
     /** Method lines of a derived table, in the host_installd.txt layout. */
     fun methodLines(methods: List<InstalldMethod>): String =
@@ -164,18 +188,18 @@ object InstalldExpected {
 
     /**
      * Problems with [derived] against the expected table; empty = byte-equal.
-     * [expectedText] is the host_installd.txt the app ships; it must itself
-     * hash to [SHA256] (a wrong asset fails closed). Null compares with the
-     * pinned hash only.
+     * [expectedText] is the host_installd.txt the app ships (the one for
+     * [pinned]'s host kind); it must itself hash to [pinned.sha256] (a wrong
+     * asset fails closed). Null compares with the pinned hash only.
      */
-    fun problems(derived: InstalldDerivation?, expectedText: String? = null): List<String> {
+    fun problems(derived: InstalldDerivation?, expectedText: String? = null, pinned: Pinned = ONE_UI_9): List<String> {
         if (derived == null) return listOf("installd table not derived on this phone")
         if (!derived.ok) return listOf("installd table not derived: ${derived.error ?: "no methods"}")
         val p = mutableListOf<String>()
         val expected = expectedText?.let(::nonCommentLines)
-        if (expected != null && Hashes.sha256(expected) != SHA256) p += "the app's host_installd.txt is not the pinned table"
+        if (expected != null && Hashes.sha256(expected) != pinned.sha256) p += "the app's host_installd.txt is not the pinned table"
         val got = methodLines(derived.methods)
-        if (Hashes.sha256(got) != SHA256) p += "this phone's installd table differs from the one the OneOS files carry"
+        if (Hashes.sha256(got) != pinned.sha256) p += "this phone's installd table differs from the one the OneOS files carry"
         if (expected != null && got != expected) {
             val want = expected.removeSuffix("\n").split('\n').toSet()
             val have = got.removeSuffix("\n").split('\n').toSet()

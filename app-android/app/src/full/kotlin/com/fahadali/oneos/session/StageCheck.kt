@@ -13,6 +13,7 @@ import com.fahadali.oneos.core.model.GatePhase
 import com.fahadali.oneos.core.model.GateReport
 import com.fahadali.oneos.core.model.ImageFileCheck
 import com.fahadali.oneos.core.model.InstalldDerivation
+import com.fahadali.oneos.core.model.InstalldExpected
 import com.fahadali.oneos.core.model.JarsListing
 import com.fahadali.oneos.core.model.Level
 import com.fahadali.oneos.core.model.ProbeResult
@@ -213,7 +214,8 @@ object StageCheck : BackgroundJob<StageCheck.State>(State(), "oneos-check") {
             stage = st.stageState(profile, expected),
             imageFile = imageFile.takeIf { !onPhone },
             onPhone = if (onPhone) st.stagedRaw else null,
-            expectedInstalld = runCatching { AppAssets.hostInstalldTxt(app) }.getOrNull(),
+            expectedInstalld = runCatching { AppAssets.hostInstalldTxt(app, profile) }.getOrNull(),
+            expectedInstalldPin = InstalldExpected.pinnedFor(profile),
             reclaimBytes = reclaimBytes,
             appVersionCode = BuildConfig.VERSION_CODE,
             uncollectedLogs = launch != null && !launch.logsCollected && launch.rebootedSince(),

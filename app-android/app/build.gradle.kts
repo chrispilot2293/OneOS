@@ -63,6 +63,11 @@ val packageSets: Map<String, Pair<File, List<String>>> = linkedMapOf(
     "hyper-f8u" to (File(repoRoot, "out/overlays_hyperos_r15") to listOf("tethering_payload.img")),
     // Nothing OS 5.0 (0.4.33), the Z Fold8 Ultra only: its chips need SVE/SME.
     "nothing-f8u" to (File(repoRoot, "out/overlays_nothing_r24") to listOf("tethering_payload.img")),
+    // felix (0.4.58-felix): the Pixel Fold's sets, the same guest patches with
+    // none of the Samsung-host files (docs/pixel-fold-host.md); the installd
+    // guard is built against host_installd_pixel17.txt.
+    "infinityx-felix" to (File(repoRoot, "out/overlays_infinityx_felix_r1") to listOf("tethering_payload.img", "cellbroadcast_payload.img", "framework_patched.jar", "libcamera_client_patched.so", "samcam.tar", "OneOSPixelStatusBar.apk", "telephony-common_patched.jar")),
+    "x9u-in-felix" to (File(repoRoot, "out/overlays_x9u_in_felix_r1") to listOf("tethering_payload.img", "framework_patched.jar", "libcamera_client_patched.so", "samcam.tar", "telephony-common_patched.jar")),
 )
 // The series downloads (0.4.25): -Poneos.series=<id> packs only the sets that
 // app-android/packages/series.txt lists for it (ApkSeries keeps the same lists,
@@ -126,6 +131,10 @@ val sessionScripts: Map<String, File> = linkedMapOf(
     // (switcher/patches/OneOSOverlayDimen.java, build_overlay_dimen.sh).
     "OneOSOverlayDimen.dex" to File(repoRoot, "switcher/assets/OneOSOverlayDimen.dex"),
     "host_installd.txt" to File(repoRoot, "switcher/patches/host_installd.txt"),
+    // felix (0.4.58-felix): the Pixel hosts' own installd table (AOSP
+    // Android 17, 37 methods); staged with every set like the Samsung one,
+    // and checked against on a Pixel Fold.
+    "host_installd_pixel17.txt" to File(repoRoot, "switcher/patches/host_installd_pixel17.txt"),
 )
 val switcherNotShipped = setOf("oneos_tunnel.sh", "7zz")
 

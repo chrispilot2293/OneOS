@@ -36,9 +36,25 @@ class PackageSetsTest {
         assertEquals("out/overlays_pixel_f8u_r6", pixel.sourceDir)
         assertEquals(
             listOf(n6, xin, pixel, PackageSets.PIXEL_SULTRA, PackageSets.PIXEL_F8, PackageSets.PIXEL9_SULTRA,
-                PackageSets.INFINITYX, PackageSets.HYPER_F8U, PackageSets.NOTHING_F8U),
+                PackageSets.INFINITYX, PackageSets.HYPER_F8U, PackageSets.NOTHING_F8U,
+                PackageSets.INFINITYX_FELIX, PackageSets.X9U_IN_FELIX),
             PackageSets.ALL,
         )
+        // The felix sets (0.4.58-felix): the Samsung twins' guest patches with
+        // none of the Samsung-host files - no camera codes, no samcam, no SMS
+        // service centre fix, no Samsung status bar - and the Pixel installd
+        // table's guard jars (host_installd_pixel17.txt, 37 methods).
+        val ifxFelix = PackageSets.INFINITYX_FELIX
+        assertEquals(Images.ID_INFINITYX, ifxFelix.imageId)
+        assertEquals("out/overlays_infinityx_felix_r1", ifxFelix.sourceDir)
+        for (n in listOf("framework_patched.jar", "libcamera_client_patched.so", "samcam.tar", "OneOSPixelStatusBar.apk", "telephony-common_patched.jar")) {
+            assertTrue(n, n !in ifxFelix.names)
+        }
+        assertEquals(listOf("services_patched.jar", "oplus-services_patched.jar", "vold_patched", "service.incremental_patched.so"),
+            ifxFelix.files.filter { it.role in PackageFile.GUARDED }.map { it.name })
+        assertEquals(PackageSets.GMS_PAYLOAD, ifxFelix.file(PackageSets.GMS_PAYLOAD)?.name)
+        assertEquals(Images.ID_FIND_X9U_IN, PackageSets.X9U_IN_FELIX.imageId)
+        assertEquals("out/overlays_x9u_in_felix_r1", PackageSets.X9U_IN_FELIX.sourceDir)
         // Infinity-X (0.4.27): both guard jars, the camera codes (Java and native), the guest vold, the
         // AOSP signal poll, the IMS backoff, the guest app, the guards and 21 payloads, GmsCore's among them.
         // Not its cellbroadcast module (0.4.28): One UI's stays, as tethering does.
@@ -242,7 +258,12 @@ class PackageSetsTest {
 
     @Test
     fun shaListsNameExactlyTheSetsFiles() {
-        for (s in PackageSets.ALL) assertEquals(s.id, emptyList<String>(), s.check(shas(s)))
+        // The felix sets' lists arrive with their first build (the fork's
+        // builder makes them); until then there is nothing to check.
+        for (s in PackageSets.ALL) {
+            if (Bundles::class.java.getResource("/packages/${s.id}.sha256") == null) continue
+            assertEquals(s.id, emptyList<String>(), s.check(shas(s)))
+        }
         // The Pixel list and a ColorOS one are not interchangeable.
         val pixelOnN6 = pixel.check(shas(n6))
         assertTrue(pixelOnN6.contains("pixel-f8u: oneos-telephony.jar missing"))
@@ -270,7 +291,11 @@ class PackageSetsTest {
 
     @Test
     fun guardsMatchTheGuardJars() {
-        for (s in PackageSets.ALL) assertEquals(s.id, emptyList<String>(), s.checkGuards(guards(s), shas(s)))
+        // As above: the felix sets' guards.txt arrives with their first build.
+        for (s in PackageSets.ALL) {
+            if (Bundles::class.java.getResource("/packages/${s.id}.guards.txt") == null) continue
+            assertEquals(s.id, emptyList<String>(), s.checkGuards(guards(s), shas(s)))
+        }
         // N6 guards with the X9U jars: never mix builds. The guard jars, (0.4.37) the N6 set's
         // camera files and (0.4.38) the guest vold's two binaries: the Find N6 global build has the
         // IN build's vold and service.incremental.so, not the CN builds'; (0.4.39) its telephony-common_patched.jar.
@@ -339,13 +364,15 @@ class PackageSetsTest {
     fun checkedInPackageListsMatchTheSets() {
         val dir = System.getProperty("oneos.packagesDir")?.let(::File)
         assumeTrue("app-android/packages not there yet", dir != null && dir.isDirectory)
+        // The felix sets' lists arrive with their first build: every list
+        // present names a set of this build, and every set that has one matches.
+        val listed = dir!!.list()!!.filter { it.endsWith(".sha256") }.toSet()
+        assertTrue(PackageSets.ALL.map { "${it.id}.sha256" }.toSet().containsAll(listed))
         for (s in PackageSets.ALL) {
             val f = File(dir, "${s.id}.sha256")
             assumeTrue("${f.name} not there yet", f.isFile)
             assertEquals(s.id, emptyList<String>(), s.check(f.readText()))
         }
-        // The IN sets' lists are gone with the image (0.3.7).
-        assertEquals(PackageSets.ALL.map { "${it.id}.sha256" }.toSet(), dir!!.list()!!.filter { it.endsWith(".sha256") }.toSet())
     }
 
     @Test

@@ -16,6 +16,22 @@ SDK="${ANDROID_HOME:-/opt/android-sdk}"
 BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
 AJ=$(ls "$SDK"/platforms/android-*/android.jar | sort -V | tail -1)
 DEBUGFS=$(command -v debugfs || echo /usr/sbin/debugfs)
+# felix (0.4.58-felix): ONEOS_HOST=pixel builds the felix sets, for a Pixel
+# Fold host. The installd guard is then built against the Pixel's own AOSP
+# Android 17 table (switcher/patches/host_installd_pixel17.txt, 37 methods),
+# and the Samsung-host patches are left out: the One UI camera transaction
+# codes (the Pixel's camera service is AOSP's, so a guest's own codes already
+# match), the Samsung brightness curves and overlays (OneOSPanelBacklight,
+# samsung_backlight_curve.py, OneOSBrightnessRange), and the pixel_statusbar
+# overlay (it compensates Samsung's vendor inset gaps). Everything else - the
+# storage, power, sysrq, weaver, biometric, gatekeeper, pdb, apexd, appid and
+# ksuappid guards, the guest vold, the APEX-service skip (which also covers
+# Google's APEXes since 0.4.58-felix) - is host-generic and stays.
+ONEOS_HOST=${ONEOS_HOST:-oneui}
+HOST_TABLE="$ROOT/switcher/patches/host_installd.txt"
+if [ "$ONEOS_HOST" = pixel ]; then
+    HOST_TABLE="$ROOT/switcher/patches/host_installd_pixel17.txt"
+fi
 # A file the image has (ColorOS's own jars are not in a Pixel image).
 in_image() { "$DEBUGFS" -R "stat $1" "$IMG" 2>&1 | grep -q '^Inode:'; }
 [ -f "$IMG" ] || { echo "usage: $0 <system.img> [outdir]" >&2; exit 2; }
@@ -204,9 +220,10 @@ KEY_DIRS="$KEY_DIRS $(python3 -I "$ROOT/switcher/patches/guest_power_guards.py" 
 # Never let the guest delete or rewrite the phone's data through the shared
 # installd, vold or keystore2 (patches/guest_storage_guards.py).
 KEY_DIRS="$KEY_DIRS $(python3 -I "$ROOT/switcher/patches/guest_storage_guards.py" "$WORK/services")"
-# Send installd calls with One UI's transaction codes, block the rest
-# (patches/guest_installd_abi.py, table from scripts/host-installd-table.sh).
-KEY_DIRS="$KEY_DIRS $(python3 -I "$ROOT/switcher/patches/guest_installd_abi.py" "$WORK/services" "$ROOT/switcher/patches/host_installd.txt")"
+# Send installd calls with the host's transaction codes, block the rest
+# (patches/guest_installd_abi.py, table from scripts/host-installd-table.sh;
+# ONEOS_HOST=pixel: the Pixel's own table, host_installd_pixel17.txt).
+KEY_DIRS="$KEY_DIRS $(python3 -I "$ROOT/switcher/patches/guest_installd_abi.py" "$WORK/services" "$HOST_TABLE")"
 # No kernel crash from the guest's watchdog (patches/guest_no_sysrq_crash.py).
 KEY_DIRS="$KEY_DIRS $(python3 -I "$ROOT/switcher/patches/guest_no_sysrq_crash.py" "$WORK/services")"
 # The guest never touches the phone's weaver slots, where One UI's lock
@@ -337,8 +354,12 @@ if in_image /system/framework/oplus-services.jar; then
     NEW=$(python3 -I "$ROOT/switcher/patches/guest_installd_abi.py" --callers "$WORK/oplus")
     DIRS=$(printf '%s\n' $DIRS $NEW | sort -u)
     # Brightness on Samsung's panel (patches/samsung_backlight_curve.py).
-    NEW=$(python3 -I "$ROOT/switcher/patches/samsung_backlight_curve.py" "$WORK/oplus" "$ROOT/switcher/patches/OneOSPanelBacklight.smali")
-    DIRS=$(printf '%s\n' $DIRS $NEW | sort -u)
+    # felix (0.4.58-felix): a Pixel host's composer is not Samsung's; the
+    # guest keeps its own brightness mapping.
+    if [ "$ONEOS_HOST" != pixel ]; then
+        NEW=$(python3 -I "$ROOT/switcher/patches/samsung_backlight_curve.py" "$WORK/oplus" "$ROOT/switcher/patches/OneOSPanelBacklight.smali")
+        DIRS=$(printf '%s\n' $DIRS $NEW | sort -u)
+    fi
 
     # OPPO's default runtime grants without CUST_LEVEL_LIST (patches/oplus_default_grants.py).
     NEW=$(python3 -I "$ROOT/switcher/patches/oplus_default_grants.py" "$WORK/oplus")
@@ -772,12 +793,18 @@ if [ "${HYPEROS_FW:-0}" = 1 ] && [ -f "$OUT/framework_patched.jar" ]; then
     cp "$OUT/framework_patched.jar" "$WORK/framework-cam.jar"
 fi
 rm -f "$OUT/framework_patched.jar" "$OUT/libcamera_client_patched.so" "$OUT/libcameracompatbilityinfo_patched.so"
-if in_image /system/framework/framework.jar; then
+# felix (0.4.58-felix): ONEOS_HOST=pixel skips these - the Pixel host's camera
+# service is AOSP's, so a guest's own transaction codes already match, and the
+# Samsung renumbering (and the CameraCompatibilityInfo field it drops) would
+# misdirect every call on a Pixel host.
+if [ "$ONEOS_HOST" = pixel ]; then
+    echo "felix: skipping the One UI camera transaction code patches (AOSP host)"
+elif in_image /system/framework/framework.jar; then
     [ -f "$WORK/framework-cam.jar" ] || "$DEBUGFS" -R "dump /system/framework/framework.jar $WORK/framework-cam.jar" "$IMG" 2>/dev/null
     "$ROOT/scripts/patch-framework-camera.sh" "$WORK/framework-cam.jar" "$OUT"
     rm -f "$WORK/framework-cam.jar"
 fi
-if in_image /system/lib64/libcamera_client.so && in_image /system/lib64/libcameracompatbilityinfo.so; then
+if [ "$ONEOS_HOST" != pixel ] && in_image /system/lib64/libcamera_client.so && in_image /system/lib64/libcameracompatbilityinfo.so; then
     "$DEBUGFS" -R "dump /system/lib64/libcamera_client.so $WORK/libcamera_client.so" "$IMG" 2>/dev/null
     "$DEBUGFS" -R "dump /system/lib64/libcameracompatbilityinfo.so $WORK/libcameracompatbilityinfo.so" "$IMG" 2>/dev/null
     "$ROOT/scripts/patch-camera-native.sh" "$WORK/libcamera_client.so" "$WORK/libcameracompatbilityinfo.so" "$OUT"
@@ -1007,7 +1034,12 @@ sb_cfgs() {
         cur != "" && /^ *\(/ { print cur, $1 }' "$1"
 }
 rm -f "$OUT/OneOSPixelStatusBar.apk"
-if in_image "$SYSUI"; then
+# felix (0.4.58-felix): the overlay compensates Samsung's vendor inset gaps;
+# on a Pixel host the guest runs on the Pixel's own vendor partition and the
+# image's own values are right.
+if [ "$ONEOS_HOST" = pixel ]; then
+    echo "felix: skipping the pixel_statusbar overlay (not a Samsung vendor)"
+elif in_image "$SYSUI"; then
     "$DEBUGFS" -R "dump $SYSUI $WORK/SystemUIGoogle.apk" "$IMG" 2>/dev/null
     "$BT/aapt2" dump resources "$WORK/SystemUIGoogle.apk" > "$WORK/sysui_res.txt" 2>/dev/null || true
     SB_MISSING=""

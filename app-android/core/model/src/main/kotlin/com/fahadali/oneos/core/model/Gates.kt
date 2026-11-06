@@ -150,6 +150,12 @@ data class GateInput(
     val onPhone: StagedRaw? = null,
     /** switcher/patches/host_installd.txt as the app ships it; null = compare with the pinned hash only. */
     val expectedInstalld: String? = null,
+    /**
+     * The pinned table the staged files were built against
+     * ([InstalldExpected.pinnedFor]; the felix port's sets carry the Pixel
+     * table). Null = One UI 9's, which every Samsung host uses.
+     */
+    val expectedInstalldPin: InstalldExpected.Pinned? = null,
     /** PREPARE: bytes root frees before receiving (the old system.raw of an adopted stage). */
     val reclaimBytes: Long = 0,
     /** This app's versionCode; when set, a stage marked by another build must be prepared again. */
@@ -502,7 +508,7 @@ object SwitchGates {
     }
 
     private fun installd(input: GateInput): Finding {
-        val p = InstalldExpected.problems(input.installd, input.expectedInstalld)
+        val p = InstalldExpected.problems(input.installd, input.expectedInstalld, input.expectedInstalldPin ?: InstalldExpected.ONE_UI_9)
         return if (p.isEmpty()) {
             Finding(
                 ID_INSTALLD, Level.OK, "installd interface matches the OneOS files",

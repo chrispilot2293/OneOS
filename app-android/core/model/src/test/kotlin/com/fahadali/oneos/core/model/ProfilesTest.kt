@@ -250,6 +250,7 @@ class ProfilesTest {
                 Profiles.FOLD6, Profiles.A07, Profiles.FLIP8, Profiles.A36, Profiles.FOLD5,
                 Profiles.S_ULTRA_8550, Profiles.FLIP6, Profiles.S_9945, Profiles.S_EDGE_8750, Profiles.S_FE_9945,
                 Profiles.A26, Profiles.A17, Profiles.A16, Profiles.S_9965, Profiles.A16_4G,
+                Profiles.FELIX,
             ),
             Profiles.BUILT_IN,
         )
@@ -297,9 +298,10 @@ class ProfilesTest {
         assertNull(Profiles.F8U.choice(Images.ID_FIND_X9U_IN))
         // The owner does not want the X9U (CN) image on the Fold: only the N6 and Pixel images there.
         // The Fold7 (0.4.8) takes the N6 image only; the Fold6 (0.4.33) the same.
-        assertEquals(listOf(Profiles.F8U, Profiles.FOLD7, Profiles.FOLD8, Profiles.FOLD6, Profiles.FOLD5), Profiles.BUILT_IN.filter { it.form == FormFactor.FOLD })
-        // The Find X9 Ultra builds run as a phone: the bar phones and (0.4.17) the Z Flip7 on its main screen.
-        assertTrue(Profiles.BUILT_IN.filter { it.choice(Images.ID_FIND_X9U_IN) != null }.all { it.form == FormFactor.BAR || it.form == FormFactor.FLIP })
+        assertEquals(listOf(Profiles.F8U, Profiles.FOLD7, Profiles.FOLD8, Profiles.FOLD6, Profiles.FOLD5, Profiles.FELIX), Profiles.BUILT_IN.filter { it.form == FormFactor.FOLD })
+        // The Find X9 Ultra builds run as a phone: the bar phones and (0.4.17) the Z Flip7 on its main
+        // screen - and (0.4.58-felix) the Pixel Fold, the one fold that takes the IN build's set.
+        assertTrue(Profiles.BUILT_IN.filter { it.choice(Images.ID_FIND_X9U_IN) != null }.all { it.form == FormFactor.BAR || it.form == FormFactor.FLIP || it.id == Profiles.ID_FELIX })
         assertEquals(listOf(Profiles.FLIP7, Profiles.FLIP5, Profiles.FLIP8, Profiles.FLIP6), Profiles.BUILT_IN.filter { it.form == FormFactor.FLIP })
         // The Pixel 11 Fold image on the SM8850 folds (it ran on the Fold8 Ultra; 0.4.10 the Z Fold8, untested), with the Fold's set.
         assertEquals(listOf(Profiles.F8U, Profiles.FOLD8), Profiles.BUILT_IN.filter { it.choice(Images.ID_PIXEL_YOGI) != null })
@@ -320,12 +322,13 @@ class ProfilesTest {
             Profiles.BUILT_IN.filter { it.choice(Images.ID_PIXEL_KOMODO) != null },
         )
         assertEquals(PackageSets.ID_PIXEL_F8U, Profiles.F8U.choice(Images.ID_PIXEL_YOGI)!!.packageSetId)
-        // 0.4.11: the IN build listed first wherever it is offered; never on a fold.
+        // 0.4.11: the IN build listed first wherever it is offered; never on a Samsung fold
+        // (0.4.58-felix: the Pixel Fold is the one fold that takes it, Infinity-X listed first).
         assertEquals(
-            Profiles.BUILT_IN.filter { it.choice(Images.ID_FIND_X9U_IN) != null },
+            Profiles.BUILT_IN.filter { it.choice(Images.ID_FIND_X9U_IN) != null && it.id != Profiles.ID_FELIX },
             Profiles.BUILT_IN.filter { it.choices.firstOrNull()?.imageId == Images.ID_FIND_X9U_IN },
         )
-        assertTrue(Profiles.BUILT_IN.filter { it.form == FormFactor.FOLD }.all { it.choice(Images.ID_FIND_X9U_IN) == null })
+        assertTrue(Profiles.BUILT_IN.filter { it.form == FormFactor.FOLD && it.id != Profiles.ID_FELIX }.all { it.choice(Images.ID_FIND_X9U_IN) == null })
         // The IN build is the preselected one (0.4.51: tested where the retired debloated build was).
         assertEquals(Images.ID_FIND_X9U_IN, Profiles.S_ULTRA_8750.recommended?.imageId)
         assertEquals(Images.ID_FIND_X9U_IN, Profiles.S_PLUS_8750.recommended?.imageId)
@@ -421,6 +424,19 @@ class ProfilesTest {
         assertNull(profile("SM-F976B", "q7q", "SM8750")) // Fold8 Ultra model number, Fold7 codename
         assertNull(profile("SM-F766B", "b7q", "SM8750")) // Z Flip7: no profile
         assertNull(profile("Pixel 10 Pro Fold", "rango", "Tensor G5"))
+        // 0.4.58-felix: the Google Pixel Fold - all three ids, like every
+        // profile, and never another Google phone or another Tensor.
+        assertEquals(Profiles.FELIX, profile("Pixel Fold", "felix", "GS201"))
+        assertEquals(Profiles.FELIX, profile("PIXEL FOLD", "Felix", "gs201"))
+        assertNull(profile("Pixel 10 Pro Fold", "rango", "GS201")) // a newer Tensor, not the G2
+        assertNull(profile("Pixel Fold", "rango", "GS201")) // wrong codename
+        assertNull(profile("Pixel Fold", "felix", "GS101")) // the first Tensor
+        assertEquals(FormFactor.FOLD, Profiles.FELIX.form)
+        assertEquals(
+            listOf(Images.ID_INFINITYX, Images.ID_FIND_X9U_IN),
+            Profiles.FELIX.choices.map { it.imageId },
+        )
+        assertFalse(Profiles.FELIX.testedWithAnyImage) // the port is untested on hardware
 
         val near = Profiles.resolve("SM-S948U", "pa3q", "SM8750")
         assertNull(near.profile)

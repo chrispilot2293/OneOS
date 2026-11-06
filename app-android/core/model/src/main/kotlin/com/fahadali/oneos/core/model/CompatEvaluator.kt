@@ -64,11 +64,14 @@ object CompatEvaluator {
         val image = choice?.let { Images.byId(it.imageId, images) }
         val set = choice?.let { PackageSets.byId(it.packageSetId, sets) }
 
-        // Brand, ABI, model scope (G11 and the owner's target list).
-        if (!f.isSamsung) {
+        // Brand, ABI, model scope (G11 and the owner's target list). The felix
+        // port (0.4.58-felix) also accepts a Google host: OneOS runs next to
+        // the Pixel's own system there, the same way it runs next to One UI.
+        if (!f.isSamsung && !f.isGoogle) {
             out += Finding(
-                "not-samsung", Level.BLOCK, "Not a Samsung phone",
-                "OneOS runs next to One UI, so it needs a Samsung phone " +
+                "not-samsung", Level.BLOCK, "Not a Samsung or Google phone",
+                "OneOS runs next to the phone's own system (One UI on a Samsung, " +
+                    "the Pixel system on a Google phone), so it needs one of those " +
                     "(brand '${f.brand}', maker '${f.manufacturer}').",
             )
         }
@@ -79,7 +82,7 @@ object CompatEvaluator {
                     "'${f.abis64.joinToString().ifEmpty { "none" }}'.",
             )
         }
-        if (f.isSamsung && !inScope(family, profile)) {
+        if (f.isSamsung && !inScope(family, profile)) {  // a Google host needs an explicit profile (felix)
             val extra = profiles.filter { !ModelFamily.of(it.modelPrefix).inScope }
             out += Finding(
                 ID_OUT_OF_SCOPE, Level.BLOCK, "Not a supported model",
@@ -112,6 +115,14 @@ object CompatEvaluator {
                     ". A ${family.label} (${f.model}, ${f.device.ifEmpty { "?" }}, ${f.soc.model.ifEmpty { "?" }}) " +
                     "needs its own profile; the tests and findings help make one.",
             )
+            // The felix port: a Google phone that OneOS has no profile for is
+            // refused outright, the same fail-closed way an out-of-scope
+            // Samsung model is.
+            f.isGoogle -> out += Finding(
+                ID_NO_PROFILE, Level.BLOCK, "No OneOS package for this Google phone",
+                "OneOS runs on Google phones from the Pixel Fold (felix) profile only; " +
+                    "${f.model} (${f.device.ifEmpty { "?" }}, ${f.soc.model.ifEmpty { "?" }}) has none.",
+            )
         }
         if (profile != null && f.form.form != profile.form) {
             out += Finding(
@@ -141,6 +152,16 @@ object CompatEvaluator {
             SocVendor.MEDIATEK, SocVendor.UNKNOWN -> out += Finding(
                 "soc-unknown", Level.WARN, "Chip not recognised",
                 "${f.soc.display}. Only Snapdragon has been tested.",
+            )
+            // The felix port: a Tensor host with its profile (Pixel Fold) is a
+            // first run - the same standing Exynos and MediaTek profiles have.
+            SocVendor.GOOGLE -> out += if (profile != null) Finding(
+                "soc-tensor", Level.WARN, "Tensor: first runs",
+                "${f.soc.display}. No session has run on a Tensor phone yet; the ${profile.label} profile " +
+                    "is for its first sessions.",
+            ) else Finding(
+                "soc-tensor", Level.BLOCK, "Tensor is not supported yet",
+                "${f.soc.display}. Only the Pixel Fold (felix) has a Tensor profile.",
             )
         }
 

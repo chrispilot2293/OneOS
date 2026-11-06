@@ -723,20 +723,27 @@ oneos_boot_begin enter
 # appears to "magically" deliver them.
 # So: make sure imsd is up, and give the modem a moment to (re)register before
 # the pivot. Never stop imsd afterwards; killing it was what degraded SMS.
-if ! pidof imsd >/dev/null 2>&1; then
+# felix (0.4.58-felix): a Pixel host has no imsd (its IMS lives in the
+# framework and the modem), so the gate and the keepalive below are skipped
+# entirely - ctl.start imsd is a no-op and the 90 s wait would be for nothing.
+if [ -z "$(getprop init.svc.imsd)" ]; then
+    echo "IMS gate: no imsd on this host (framework IMS); skipped"
+elif ! pidof imsd >/dev/null 2>&1; then
     setprop ctl.start imsd 2>/dev/null || true
 fi
 ims_i=0
 ims_st=1
-while [ "$ims_i" -lt 45 ]; do
-    if dumpsys telephony.registry 2>/dev/null | grep -q 'mVoiceRegState=0'; then
-        ims_st=0
-        break
-    fi
-    ims_i=$((ims_i + 1))
-    sleep 2
-done
-echo "IMS gate: voiceRegState=$ims_st after $((ims_i * 2))s, imsd=${ims_pid:-$(pidof imsd)}"
+if [ -n "$(getprop init.svc.imsd)" ]; then
+    while [ "$ims_i" -lt 45 ]; do
+        if dumpsys telephony.registry 2>/dev/null | grep -q 'mVoiceRegState=0'; then
+            ims_st=0
+            break
+        fi
+        ims_i=$((ims_i + 1))
+        sleep 2
+    done
+    echo "IMS gate: voiceRegState=$ims_st after $((ims_i * 2))s, imsd=${ims_pid:-$(pidof imsd)}"
+fi
 
 # --- ADB WATCHDOG ---------------------------------------------------------
 # adb is the only way into the phone while the guest is up (until wifi is
@@ -814,8 +821,9 @@ fi
 # imsd is the daemon holding the modem's IMS registration (see the IMS gate
 # above). init does not always bring it back if it dies, and a dead imsd means
 # SMS quietly degrades to "arrives whenever the SMSC next retries", so keep it
-# supervised for the whole guest session.
-if ! ps -ef 2>/dev/null | grep -v grep | grep -q "ims_watchdog.sh"; then
+# supervised for the whole guest session. felix (0.4.58-felix): no imsd
+# service on this host, nothing to supervise.
+if [ -n "$(getprop init.svc.imsd)" ] && ! ps -ef 2>/dev/null | grep -v grep | grep -q "ims_watchdog.sh"; then
     cat > /data/local/tmp/ims_watchdog.sh <<'IMSW'
 #!/system/bin/sh
 LOG=/data/local/tmp/ims_watchdog.log
@@ -1317,7 +1325,10 @@ fi
 # guest's gets it fresh. ONEOS_GUEST_AUDIO=0 keeps Samsung's audioserver.
 if [ "${ONEOS_GUEST_AUDIO:-1}" = "1" ]; then
     touch "$STAGE/data/guest_audio.flag"
-    AHAL=$(getprop | sed -n 's/^\[init\.svc\.\(vendor\.audio-hal[^]]*\)\]: \[running\]$/\1/p' | tr '\n' ' ')
+    # felix (0.4.58-felix): also take AOSP-named audio HAL services - the
+    # Pixel's audio HAL registers as android.hardware.audio.* (no vendor.
+    # prefix), and return_to_oneui.sh restarts what this collects.
+    AHAL=$(getprop | sed -n -e 's/^\[init\.svc\.\(vendor\.audio-hal[^]]*\)\]: \[running\]$/\1/p' -e 's/^\[init\.svc\.\(android\.hardware\.audio[^]]*\)\]: \[running\]$/\1/p' | tr '\n' ' ')
     echo "$AHAL" > "$STAGE/host_audio_hal_svcs"
     setprop ctl.stop audioserver
     n=0

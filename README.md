@@ -36,6 +36,26 @@ WeWaffles, and builds its guest images with
 > a phone you can afford to reset. Nothing here is supported by Samsung,
 > Google or OPPO.
 
+## Pixel Fold port (this fork)
+
+This fork ports OneOS to the rooted **Google Pixel Fold** (`felix`, Tensor G2,
+stock Android 17): the Pixel's own system takes One UI's place - it stays
+untouched on the other slot while a guest runs on the Pixel's kernel and
+vendor services, and switches back the same way. A `felix` profile offers the
+two guests proven on no-SVE ARMv8.2 hosts already (Infinity-X 4.1 and the
+ColorOS 17 Find X9 Ultra IN build); the Pixel 11 images are deliberately not
+offered, because their system code needs SVE, which the Tensor G2 does not
+have. The port carries its own pinned AOSP 17 installd table (37 methods, next
+to One UI 9's 85) and builds its sets without every Samsung-host patch
+(`ONEOS_HOST=pixel scripts/make-overlays.sh`).
+
+No session has run on a Pixel Fold yet - the profile is marked untested and
+the compatibility report says so. What was audited and changed, how to build
+the felix sets, and what to watch in the first logs:
+[docs/pixel-fold-host.md](docs/pixel-fold-host.md) (full audit:
+[docs/pixel-fold-audit.md](docs/pixel-fold-audit.md)). Everything else in this
+README is about upstream OneOS on Samsung phones.
+
 ## Status
 
 App version 0.4.40. Samsung flagships with Snapdragon, plus the first five

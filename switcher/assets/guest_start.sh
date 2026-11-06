@@ -168,13 +168,26 @@ DISPLAYCONFIG=/vendor/etc/displayconfig
 LAYOUT_HIDDEN=0
 rm -f /data/oneos_fold_mode /data/oneos_inner_display
 if [ -f "$DISPLAYCONFIG/display_layout_configuration.xml" ] && [ "${ONEOS_KEEP_FOLD_LAYOUT:-0}" != "1" ]; then
-    rm -rf /data/oneos_displayconfig && mkdir -p /data/oneos_displayconfig
-    for f in "$DISPLAYCONFIG"/*; do
-        [ "$(basename "$f")" = display_layout_configuration.xml ] || cp -p "$f" /data/oneos_displayconfig/
+    # felix (0.4.58-felix): hide it only when our own fold ports can be
+    # derived - from Samsung's sec_touchscreen names or, on another host like
+    # the Pixel Fold, from that host's own input-port associations. With no
+    # association file the guest would get no layout at all (the host file
+    # gone, none written), so the host's own file stays in place.
+    PORTS_FOUND=0
+    for f in /vendor/etc/input-port-associations.xml /vendor/odm/etc/input-port-associations.xml; do
+        [ -f "$f" ] && grep -q '<port display=' "$f" && PORTS_FOUND=1
     done
-    chmod 755 /data/oneos_displayconfig && chmod 644 /data/oneos_displayconfig/*
-    $BB mount --bind /data/oneos_displayconfig "$DISPLAYCONFIG" && LAYOUT_HIDDEN=1 && \
-        echo "[Pivoted Root] Fold layout config hidden from the guest ($(ls /data/oneos_displayconfig | wc -l) display configs kept)"
+    if [ "$PORTS_FOUND" = 1 ]; then
+        rm -rf /data/oneos_displayconfig && mkdir -p /data/oneos_displayconfig
+        for f in "$DISPLAYCONFIG"/*; do
+            [ "$(basename "$f")" = display_layout_configuration.xml ] || cp -p "$f" /data/oneos_displayconfig/
+        done
+        chmod 755 /data/oneos_displayconfig && chmod 644 /data/oneos_displayconfig/*
+        $BB mount --bind /data/oneos_displayconfig "$DISPLAYCONFIG" && LAYOUT_HIDDEN=1 && \
+            echo "[Pivoted Root] Fold layout config hidden from the guest ($(ls /data/oneos_displayconfig | wc -l) display configs kept)"
+    else
+        echo "[Pivoted Root] No input-port associations on this host; keeping its own fold layout config"
+    fi
 fi
 
 # Gap splash (oneos_switch.sh): [4b/6] froze One UI's surfaceflinger
@@ -373,6 +386,15 @@ if [ "$LAYOUT_HIDDEN" = 1 ] && [ "${ONEOS_GUEST_FOLD:-layout}" != off ]; then
         [ -f "$f" ] || continue
         IN_PORT=$(sed -n 's/.*<port display="\([0-9][0-9]*\)" input="sec_touchscreen".*/\1/p' "$f" | head -1)
         CV_PORT=$(sed -n 's/.*<port display="\([0-9][0-9]*\)" input="sec_touchscreen2".*/\1/p' "$f" | head -1)
+        # felix (0.4.58-felix): a Pixel Fold's association file does not use
+        # Samsung's sec_touchscreen names. Take the first two distinct display
+        # ports of its own entries instead (a fold's associations list the
+        # inner panel's touch first), so another foldable does not fall through
+        # to the Samsung Fold's 147/148.
+        if [ -z "$IN_PORT" ] || [ -z "$CV_PORT" ] || [ "$IN_PORT" = "$CV_PORT" ]; then
+            P=$(sed -n 's/.*<port display="\([0-9][0-9]*\)" input="[^"]*".*/\1/p' "$f" | awk '!seen[$0]++')
+            IN_PORT=$(echo "$P" | sed -n '1p'); CV_PORT=$(echo "$P" | sed -n '2p')
+        fi
         break
     done
     [ -n "$IN_PORT" ] && [ -n "$CV_PORT" ] && [ "$IN_PORT" != "$CV_PORT" ] || { IN_PORT=147; CV_PORT=148; }
@@ -597,7 +619,13 @@ if [ -w "$BL/brightness" ]; then
             [ \"\$(getprop service.bootanim.exit)\" = 1 ] && break
             if [ \"\$(cat $BL/brightness)\" = 0 ]; then
                 # 928: about 135 nits on this panel (max/4 was ~660 nits).
-                echo 928 > $BL/brightness
+                # felix (0.4.58-felix): another host's panel (the Pixel Fold's)
+                # has its own scale, so take a quarter of whatever the node
+                # reports as its maximum; 928's floor only when there is none.
+                BLM=\"\$(cat $BL/max_brightness 2>/dev/null)\"
+                case \"$BLM\" in \"\"|*[!0-9]*) BLM=3712 ;; esac
+                BLM=$((BLM / 4)); [ \"$BLM\" -lt 928 ] && BLM=928
+                echo \"$BLM\" > $BL/brightness
                 echo \"\$(date +%T) inner backlight was 0, set to \$(cat $BL/brightness)\"
             fi
             sleep 3; i=\$((i + 1))
@@ -849,6 +877,15 @@ if [ -f /data/guest_audio.flag ]; then
     # logs, grows across sessions: each session starts with a dated line.
     A2F=${ONEOS_GUEST_A2DP_FORMAT:-2097152}
     case "$A2F" in ""|*[!0-9]*) A2F=0 ;; esac
+    # felix (0.4.58-felix): the keeper is for Samsung's QTI HAL - it hand-builds
+    # a vendor-parameter parcel for that HAL's setVendorParameters and reads its
+    # AHAL_SecModulePrimary log. A host whose audio HAL libraries do not carry
+    # l_a2dp_format (the Pixel's AIDL audio HAL) gets nothing from it, and an
+    # unverified transaction 34 into another HAL build is not worth sending.
+    if ls /vendor/lib64/*.so /vendor/lib64/hw/*.so 2>/dev/null | head -2000 | xargs -r grep -l l_a2dp_format >/dev/null 2>&1; then :; else
+        echo "[Pivoted Root] A2DP loop off: this host's audio HAL has no l_a2dp_format"
+        A2F=0
+    fi
     if [ "$A2F" != 0 ]; then
         echo "=== $(date '+%F %T') session: l_a2dp_format=$A2F to the audio HAL" >> /data/oneos_a2dp.log
         $BB sh -c 'v=$1; bb=$2

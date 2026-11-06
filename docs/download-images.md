@@ -44,6 +44,7 @@ Downloads: https://drive.google.com/drive/folders/1KuyNegquzVGxX3WfqyjQW5NErAYNE
   - Galaxy S24 FE (SM-S721, s5e9945), not tested yet
   - Galaxy A26 (SM-A266, s5e8835), not tested yet
   - Galaxy S26 (Exynos) (SM-S942, s5e9965), not tested yet
+  - Pixel Fold (PIXEL, GS201), not tested yet
 
 ## Pixel 11 Fold, yogi build
 
@@ -125,6 +126,7 @@ Downloads: https://drive.google.com/drive/folders/1KuyNegquzVGxX3WfqyjQW5NErAYNE
   - Galaxy A16 5G (SM-A166, s5e8535), not tested yet
   - Galaxy S26 (Exynos) (SM-S942, s5e9965), not tested yet
   - Galaxy A16 4G (SM-A165, MT6789), not tested yet
+  - Pixel Fold (PIXEL, GS201), not tested yet
 
 ## HyperOS, Xiaomi 18 Fold build
 

@@ -133,12 +133,41 @@ class CompatEvaluatorTest {
 
     @Test
     fun notSamsungIsBlocked() {
-        val r = eval(Fixtures.facts(brand = "google", model = "Pixel 10 Pro Fold", device = "rango"))
+        val r = eval(Fixtures.facts(brand = "xiaomi", model = "23116PN5BC", device = "sheng"))
         assertEquals(Verdict.NOT_SUPPORTED, r.verdict)
         assertEquals(Level.BLOCK, r.level("not-samsung"))
         // The model-scope rule is about Samsung models only.
         assertNull(r.find("model-out-of-scope"))
         assertNull(r.find("oneui-missing"))
+    }
+
+    @Test
+    fun googlePhoneWithoutFelixProfileIsBlocked() {
+        // 0.4.58-felix: a Google host is accepted (the Pixel system takes One
+        // UI's place), but only the Pixel Fold has a profile - any other
+        // Google phone is refused outright, not just warned about.
+        val r = eval(Fixtures.facts(brand = "google", model = "Pixel 10 Pro Fold", device = "rango"))
+        assertEquals(Verdict.NOT_SUPPORTED, r.verdict)
+        assertNull(r.find("not-samsung"))
+        assertEquals(Level.BLOCK, r.level("no-profile"))
+    }
+
+    @Test
+    fun pixelFoldIsAcceptedWithWarnings() {
+        // The felix port: the report accepts the Pixel Fold, and warns the
+        // same way it warns about a Samsung phone nothing has run on yet.
+        val f = Fixtures.facts(
+            brand = "google", model = "Pixel Fold", device = "felix",
+            soc = SocProps(manufacturer = "Google", model = "GS201", platform = "gs201"),
+            oneUi = "",
+        )
+        val r = eval(f)
+        assertEquals(Verdict.WARNING, r.verdict)
+        assertNull(r.find("not-samsung"))
+        assertNull(r.find("oneui-missing"))
+        assertEquals(Level.WARN, r.level("untested-model"))
+        assertEquals(Level.WARN, r.level("soc-tensor"))
+        assertTrue(r.findings.none { it.level == Level.BLOCK })
     }
 
     @Test

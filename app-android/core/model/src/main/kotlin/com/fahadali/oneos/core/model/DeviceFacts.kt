@@ -59,4 +59,9 @@ data class DeviceFacts(
     val isSamsung: Boolean
         get() = brand.equals("samsung", ignoreCase = true) ||
             manufacturer.equals("samsung", ignoreCase = true)
+
+    /** Brand/manufacturer is Google (a Pixel host; the felix port, 0.4.58-felix). */
+    val isGoogle: Boolean
+        get() = brand.equals("google", ignoreCase = true) ||
+            manufacturer.equals("google", ignoreCase = true)
 }

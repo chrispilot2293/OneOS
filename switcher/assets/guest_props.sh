@@ -368,10 +368,19 @@ add)
     # display, captured by the switch; the same scale guest_prepare.sh gives
     # the display configs of the other systems). 1000 = the Fold's own.
     bm=$(grep 'DisplayDeviceInfo{' "$STAGE/display_modes_host.log" 2>/dev/null | sed -n 's/.*brightnessMaximum \([0-9.]*\).*/\1/p' | head -n 1)
-    sc=$(awk -v m="$bm" 'BEGIN { if (m + 0 >= 1.5 && m + 0 <= 8) printf "%d", 5298.0394 / m + 0.5; else print 1000 }')
+    # felix (0.4.58-felix): 5.2980394/bm is the Z Fold8 Ultra composer's float
+    # multiplier. A Pixel host's composer float is not that scale, and its
+    # brightnessMaximum (~1.0) already falls outside the 1.5..8 window; on any
+    # host that is not One UI leave the guest its own mapping (1000).
+    if [ "$(getprop ro.build.version.oneui)" = "" ]; then
+        sc=1000
+        echo "guest_props: panel brightness scale left at 1000 (not a One UI host; brightnessMaximum ${bm:-unknown})"
+    else
+        sc=$(awk -v m="$bm" 'BEGIN { if (m + 0 >= 1.5 && m + 0 <= 8) printf "%d", 5298.0394 / m + 0.5; else print 1000 }')
+        echo "guest_props: panel brightness scale $sc/1000 (One UI's brightnessMaximum ${bm:-unknown})"
+    fi
     sed -i '/^ro\.oneos\.panel_scale_milli=/d' "$NEW"
     echo "ro.oneos.panel_scale_milli=$sc" >> "$NEW"
-    echo "guest_props: panel brightness scale $sc/1000 (One UI's brightnessMaximum ${bm:-unknown})"
     if [ "${ONEOS_GUEST_SAUPWK:-1}" = 1 ]; then
         sed -i '/^persist\.sys\.saupwk_test=/d' "$NEW"
         echo "persist.sys.saupwk_test=1" >> "$NEW"

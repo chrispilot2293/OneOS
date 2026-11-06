@@ -129,9 +129,10 @@ class StageAuditTest {
         assertEquals(RootScript.SCRIPTS, shVar("SCRIPTS").split(' '))
         assertEquals(SessionEnv.ALLOWED.keys.toList(), shVar("ENV_KEYS").split(' '))
         assertEquals(Images.ALL.map { it.sdk }.distinct().single().toString(), shVar("IMAGE_SDK"))
-        // Enabled profiles only, each with its ids and form (SM- model numbers, and docomo's SC- ones;
-        // 0.4.17: the Z Flip7's flip, which root runs with the phone settings).
-        val rows = Regex("""^\s+([a-z0-9-]+)\) echo "(S[MC]-\S+) (\S+) (\S+) (fold|bar|flip)" ;;$""", RegexOption.MULTILINE)
+        // Enabled profiles only, each with its ids and form (SM- model numbers, docomo's SC-
+        // ones, and the Pixel Fold's "Pixel Fold" from the felix port; 0.4.17: the Z Flip7's
+        // flip, which root runs with the phone settings).
+        val rows = Regex("""^\s+([a-z0-9-]+)\) echo "(\S+) (\S+) (\S+) (fold|bar|flip)" ;;$""", RegexOption.MULTILINE)
             .findAll(script).associate { it.groupValues[1] to it.groupValues.drop(2) }
         val enabled = Profiles.BUILT_IN.filter { it.enabled }
         assertEquals(enabled.map { it.id }.toSet(), rows.keys)
@@ -184,7 +185,7 @@ class StageAuditTest {
         val exec = Regex("""^\s+(\S+)\) echo 0755 ;;$""", RegexOption.MULTILINE).find(function("file_mode"))!!.groupValues[1].split('|')
         fun mode(n: String) = if (exec.any { glob(it, n) }) "0755" else "0644"
         for (set in PackageSets.ALL) for (f in set.files) assertEquals("${set.id} ${f.name}", f.mode, mode(f.name))
-        val notExecutable = setOf("oneos_boot_icon.png", "OneOSBootStatus.dex", "host_installd.txt", "OneOSEdmStub.dex", "OneOSOverlayDimen.dex", "OneOSFold8Geometry.dex")
+        val notExecutable = setOf("oneos_boot_icon.png", "OneOSBootStatus.dex", "host_installd.txt", "host_installd_pixel17.txt", "OneOSEdmStub.dex", "OneOSOverlayDimen.dex", "OneOSFold8Geometry.dex")
         for (n in RootScript.SCRIPTS) assertEquals(n, if (n in notExecutable) "0644" else "0755", mode(n))
         // session.env values: what root accepts is what the app generates (StageScriptTest runs it).
         for (p in enabled) SessionEnv.generate(p)

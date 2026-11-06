@@ -5,6 +5,8 @@ import com.fahadali.oneos.BuildConfig
 import com.fahadali.oneos.core.model.Hashes
 import com.fahadali.oneos.core.model.PackageSet
 import com.fahadali.oneos.core.model.PackageSets
+import com.fahadali.oneos.core.model.PhoneProfile
+import com.fahadali.oneos.core.model.Profiles
 import com.fahadali.oneos.core.model.ShaList
 import com.fahadali.oneos.core.root.RootScript
 import java.io.InputStream
@@ -117,11 +119,17 @@ object AppAssets {
         return file.inputStream()
     }
 
-    /** switcher/patches/host_installd.txt as the app ships it (the installd gate's expected table). */
-    fun hostInstalldTxt(ctx: Context): String {
-        val sha = list(ctx, "scripts")["host_installd.txt"] ?: throw Broken("no host_installd.txt in the app")
+    /**
+     * switcher/patches/host_installd.txt as the app ships it (the installd
+     * gate's expected table). The felix port (0.4.58-felix) ships a second
+     * table, host_installd_pixel17.txt (AOSP Android 17, the Pixel's own
+     * installd), and a Pixel Fold host is checked against that one instead.
+     */
+    fun hostInstalldTxt(ctx: Context, profile: PhoneProfile? = null): String {
+        val name = if (profile?.id == Profiles.ID_FELIX) "host_installd_pixel17.txt" else "host_installd.txt"
+        val sha = list(ctx, "scripts")[name] ?: throw Broken("no $name in the app")
         val b = read(ctx, "oneos/files/$sha")
-        if (Hashes.sha256(b) != sha) throw Broken("host_installd.txt in the app is damaged")
+        if (Hashes.sha256(b) != sha) throw Broken("$name in the app is damaged")
         return b.toString(Charsets.UTF_8)
     }
 }

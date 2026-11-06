@@ -112,9 +112,23 @@ object Profiles {
     const val ID_A16_4G = "a16-4g"
     const val ID_A16 = "a16"
 
+    /**
+     * The Google Pixel Fold host (the felix port, 0.4.58-felix): the first
+     * non-Samsung phone OneOS runs next to. Brand Google, `ro.product.model`
+     * "Pixel Fold", `ro.product.device` felix, `ro.soc.model` GS201 (Tensor
+     * G2), stock Android 17 (SDK 37, the Pixel's own system instead of One UI).
+     */
+    const val ID_FELIX = "felix"
+
     /** The SM8750 and SM8650 phones' note ([PhoneProfile.notes]) and its [Finding.reason]. */
     const val ID_NOTE_OLDER_VENDOR = "profile-vendor-older"
     const val R_OLDER_VENDOR = "older-vendor"
+
+    /** The felix port's notes ([PhoneProfile.notes]). */
+    const val ID_NOTE_TENSOR = "profile-tensor"
+    const val R_TENSOR = "tensor-first-runs"
+    const val ID_NOTE_PIXEL_INSTALLD = "profile-pixel-installd"
+    const val R_PIXEL_INSTALLD = "pixel-installd-table"
 
     /** The SM8550 phones' note: the system will most likely not start there. */
     const val ID_NOTE_EXPECT_NO_START = "profile-expect-no-start"
@@ -186,6 +200,29 @@ object Profiles {
         "This phone has vendor API $vendorApi and kernel $kernel; the other systems' display path has only run on " +
             "vendor API 202504 (Snapdragon 8 Elite Gen 5).",
         R_OLDER_VENDOR,
+    )
+
+    /** The felix port's first-runs note: no session has run on a Tensor phone yet. */
+    private val TENSOR = Finding(
+        ID_NOTE_TENSOR, Level.WARN, "First runs on Tensor",
+        "The Pixel Fold is the first non-Samsung phone and the first Tensor phone OneOS runs on. " +
+            "The guards are the same; the Pixel's own framework, installd and display path take the place " +
+            "of One UI's. Nothing here has been tested on this phone.",
+        R_TENSOR,
+    )
+
+    /**
+     * The Pixel Fold's installd table is AOSP's (Android 17), not One UI's
+     * ([InstalldExpected.PIXEL_17]): the guest's guard jars must be built
+     * against it (switcher/patches/host_installd_pixel17.txt), which is what
+     * the felix sets are.
+     */
+    private val PIXEL_INSTALLD = Finding(
+        ID_NOTE_PIXEL_INSTALLD, Level.WARN, "Pixel installd table",
+        "This phone's installd speaks AOSP Android 17's interface, not One UI's, so only the felix " +
+            "file sets (built with switcher/patches/host_installd_pixel17.txt) work here. " +
+            "A set built for Samsung phones is refused by the installd gate.",
+        R_PIXEL_INSTALLD,
     )
 
     /** The SM8750 phones (S25 Ultra, S25, S25+, Z Fold7): vendor API 202404 and kernel 6.6. */
@@ -854,11 +891,43 @@ object Profiles {
         notes = listOf(EXYNOS, olderVendor("33 (Android 13)", "5.15")),
     )
 
+    /**
+     * The Google Pixel Fold (the felix port, 0.4.58-felix): the first non-
+     * Samsung host. `ro.product.model` is "Pixel Fold" (modelPrefix "PIXEL
+     * FOLD" matches it and nothing else), `ro.product.device` felix,
+     * `ro.soc.model` GS201 (Tensor G2, ARMv8.2: no SVE, so no Pixel guest
+     * image - their system code uses SVE in every process), stock Android 17
+     * (SDK 37, build CP3A.261005.002.A1), AOSP framework with AIDL composer3
+     * and AOSP installd ([InstalldExpected.PIXEL_17]). A fold: two built-in
+     * panels, AOSP device states, no Samsung hinge sensor. Its guests are
+     * Infinity-X and the Find X9 Ultra IN build, both of whose system code
+     * runs on ARMv8.2 CPUs, each with its own felix set (the guard jars are
+     * built against the Pixel's installd table, and they carry no Samsung
+     * camera or brightness patches). Untested: no session has run on felix.
+     */
+    val FELIX = PhoneProfile(
+        id = ID_FELIX,
+        label = "Pixel Fold",
+        // "PIXEL", not "PIXEL FOLD": the model prefix is one word, like every
+        // profile's, so the root script's profile_info line parses; the
+        // codename and the chip pin the phone (all three must match).
+        modelPrefix = "PIXEL",
+        codename = "felix",
+        socModel = "GS201",
+        form = FormFactor.FOLD,
+        choices = listOf(
+            ImageChoice(Images.ID_INFINITYX, PackageSets.ID_INFINITYX_FELIX, tested = false),
+            ImageChoice(Images.ID_FIND_X9U_IN, PackageSets.ID_X9U_IN_FELIX, tested = false),
+        ),
+        notes = listOf(TENSOR, PIXEL_INSTALLD),
+    )
+
     val BUILT_IN: List<PhoneProfile> = listOf(
         F8U, S_ULTRA_8850, S_ULTRA_8750, S_8750, FOLD7, S_PLUS_8750, FOLD8,
         S_8850, S_8850_JP, S_ULTRA_8650, S_8550, S_PLUS_8550, S_PLUS_8850,
         S_PLUS_9965, FLIP7, A56, A57, FLIP5, FOLD6, A07, FLIP8, A36, FOLD5,
         S_ULTRA_8550, FLIP6, S_9945, S_EDGE_8750, S_FE_9945, A26, A17, A16, S_9965, A16_4G,
+        FELIX,
     )
 
     /** `ro.build.version.oneui` values seen on profiled phones (all One UI 9.0). */

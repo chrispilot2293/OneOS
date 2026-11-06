@@ -90,8 +90,14 @@ object Plain {
             else -> "the Galaxy " + names.dropLast(1).joinToString(", ") + " and " + names.last()
         }
         if ("OneOS works on $list.".length <= PlainMessage.MAX_LINE) return list
-        val families = names.map { n -> listOf("Z Fold", "Z Flip").firstOrNull { n.startsWith(it) } ?: n.take(1) }.distinct()
-        return "${names.size} Galaxy phones so far: ${families.dropLast(1).joinToString(", ")} and ${families.last()} models; the README lists them"
+        // 0.4.58-felix: the Pixel Fold is the first phone in the list that is
+        // not a Galaxy, so it is named apart rather than counted as a "P"
+        // family.
+        val galaxy = names.filter { !it.startsWith("Pixel ") }
+        val pixels = names.filter { it.startsWith("Pixel ") }
+        val families = galaxy.map { n -> listOf("Z Fold", "Z Flip").firstOrNull { n.startsWith(it) } ?: n.take(1) }.distinct()
+        val whose = "${galaxy.size} Galaxy phones" + (if (pixels.isNotEmpty()) " and ${pixels.joinToString(" and ") }" else "")
+        return "$whose so far: ${families.dropLast(1).joinToString(", ")} and ${families.last()} models; the README lists them"
     }
 
     /** [of] with the facts read from [report] and the phone's [facts]. */

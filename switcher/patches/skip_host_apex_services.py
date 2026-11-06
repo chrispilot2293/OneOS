@@ -6,6 +6,10 @@ SystemServer.startApexServices() then aborted system_server with "Creating a
 ClassLoader from /apex/com.samsung.android.lifeguard/javalib/service-lifeguard.jar
 is not allowed": that jar is not on the guest's class path, and the service is
 Samsung's anyway. Skip services whose jar lives in a com.samsung.* APEX.
+felix (0.4.58-felix): a Pixel host contributes its own Google-signed APEXes to
+the same list, so a com.google.android.* jar is skipped too - except
+com.google.android.gmssystem, which the guest presents itself (guest_google.sh
+/ the set's gmssystem payload) and whose service must start.
 
 Pixel's SystemServer (R8) has the same loop with other registers and a public
 final method, so the registers are read from the code: the jar path is the
@@ -62,6 +66,12 @@ def main(root):
         s = branch[0]
         if s == jar:
             sys.exit("startApexServices: scratch register is the jar path")
+        # felix (0.4.58-felix): a Pixel host has no com.samsung.* APEXes, but
+        # its own Google-signed APEXes ride along on the host's apex-info-list.
+        # The guest presents com.google.android.gmssystem itself (guest_google
+        # / the set's payload); every other Google APEX's apex-system-service
+        # would come from the host's jar and abort the guest the same way
+        # Samsung's lifeguard did, so skip those too.
         insert = [
             f"    # OneOS: skip the host vendor's APEX system services ({jar} = jarPath).",
             f'    const-string {s}, "/apex/com.samsung."',
@@ -70,7 +80,29 @@ def main(root):
             "",
             f"    move-result {s}",
             "",
-            f"    if-nez {s}, {lines[after].strip()}",
+            f"    if-nez {s}, :oneos_skip_apex",
+            "",
+            f'    const-string {s}, "/apex/com.google.android.gmssystem"',
+            "",
+            f"    invoke-virtual {{{jar}, {s}}}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z",
+            "",
+            f"    move-result {s}",
+            "",
+            f"    if-nez {s}, :oneos_call_apex",
+            "",
+            f'    const-string {s}, "/apex/com.google.android."',
+            "",
+            f"    invoke-virtual {{{jar}, {s}}}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z",
+            "",
+            f"    move-result {s}",
+            "",
+            f"    if-eqz {s}, :oneos_call_apex",
+            "",
+            "    :oneos_skip_apex",
+            "",
+            f"    goto {lines[after].strip()}",
+            "",
+            "    :oneos_call_apex",
             "",
         ]
         lines[label + 1:label + 1] = insert

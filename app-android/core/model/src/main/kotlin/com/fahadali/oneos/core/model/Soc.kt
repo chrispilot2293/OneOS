@@ -6,6 +6,7 @@ enum class SocVendor(val label: String) {
     QUALCOMM("Qualcomm Snapdragon"),
     EXYNOS("Samsung Exynos"),
     MEDIATEK("MediaTek"),
+    GOOGLE("Google Tensor"),
     UNKNOWN("Unknown"),
 }
 
@@ -55,6 +56,9 @@ object SocRules {
     private val EXYNOS_PREFIXES = listOf("s5e", "exynos", "erd", "universal")
     private val MEDIATEK_RE = Regex("^mt\\d")
 
+    /** Google's Tensor SoCs name themselves `ro.soc.manufacturer=Google`, `ro.soc.model=GS201` (the Pixel Fold), platform `gs201`. */
+    private val TENSOR_RE = Regex("^gs\\d+$")
+
     /** Platform codename -> SoC model, for builds that leave `ro.soc.model` empty. */
     private val PLATFORM_MODEL = mapOf(
         "taro" to "SM8450",
@@ -74,6 +78,11 @@ object SocRules {
         "S5E9925" to "Exynos 2200",
         "S5E9945" to "Exynos 2400",
         "S5E9955" to "Exynos 2500",
+        "GS101" to "Tensor",
+        "GS201" to "Tensor G2",
+        "GS301" to "Tensor G3",
+        "ZUMA" to "Tensor G3",
+        "ZUMAPRO" to "Tensor G4",
     )
 
     fun resolve(p: SocProps): SocInfo {
@@ -86,6 +95,8 @@ object SocRules {
             maker.contains("qti") || maker.contains("qualcomm") -> SocVendor.QUALCOMM
             maker.contains("samsung") || maker.contains("slsi") -> SocVendor.EXYNOS
             maker.contains("mediatek") || maker == "mtk" -> SocVendor.MEDIATEK
+            maker.contains("google") && (names.any { TENSOR_RE.matches(it) } || p.model.trim().uppercase(Locale.ROOT).startsWith("GS")) -> SocVendor.GOOGLE
+            names.any { TENSOR_RE.matches(it) } -> SocVendor.GOOGLE
             names.any { n -> EXYNOS_PREFIXES.any { n.startsWith(it) } } -> SocVendor.EXYNOS
             names.any { n -> n in QUALCOMM_PLATFORMS || QUALCOMM_PREFIXES.any { n.startsWith(it) } } ->
                 SocVendor.QUALCOMM

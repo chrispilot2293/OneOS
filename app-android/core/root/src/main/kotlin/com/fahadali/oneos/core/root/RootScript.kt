@@ -113,10 +113,15 @@ object RootScript {
     /** `begin` modes: an empty stage, adopt the stage and its guest data, or move it aside first. */
     enum class BeginMode(val word: String) { NEW("new"), KEEP("keep"), ASIDE("aside") }
 
-    /** Session scripts from switcher/assets and the expected installd table, staged with every set. */
+    /**
+     * Session scripts from switcher/assets and the expected installd tables,
+     * staged with every set. host_installd.txt is every Samsung host's table;
+     * host_installd_pixel17.txt (the felix port, 0.4.58-felix) is the Pixel
+     * hosts' AOSP Android 17 one, which the app stages instead of it there.
+     */
     val SCRIPTS: List<String> = listOf(
         "oneos_switch.sh", "boot_status.sh", "OneOSBootStatus.dex", "oneos_boot_icon.png", "guest_prepare.sh", "guest_start.sh", "guest_props.sh", "return_to_oneui.sh",
-        "check_host_apex.sh", "bridges.sh", "fold8_coloros.sh", "OneOSFold8Geometry.dex", "fold8_pixel.sh", "guest_google.sh", "zygote_exec", "OneOSEdmStub.dex", "oneos_btaudio", "OneOSOverlayDimen.dex", "host_installd.txt",
+        "check_host_apex.sh", "bridges.sh", "fold8_coloros.sh", "OneOSFold8Geometry.dex", "fold8_pixel.sh", "guest_google.sh", "zygote_exec", "OneOSEdmStub.dex", "oneos_btaudio", "OneOSOverlayDimen.dex", "host_installd.txt", "host_installd_pixel17.txt",
     )
 
     const val RAW_NAME = "system.raw"
