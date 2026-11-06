@@ -250,7 +250,14 @@ abstract class OneOsFilesTask : DefaultTask() {
             val dir = File(spec.substringBefore('|'))
             val omitted = spec.substringAfter('|').split(',').filter { it.isNotBlank() }.toSet()
             val listFile = File(packages.get().asFile, "$id.sha256")
-            if (!listFile.isFile) throw GradleException("$id: app-android/packages/$id.sha256 is missing")
+            // 0.4.58-felix: a set whose list is not checked in yet - the Pixel
+            // Fold sets', until ONEOS_HOST=pixel builds them - is left out of
+            // the APK: nothing to pack or check, and the app reports the set
+            // as missing rather than refusing to build.
+            if (!listFile.isFile) {
+                logger.lifecycle("oneosFiles: no packages/$id.sha256 yet - $id left out (it arrives with the set's first build)")
+                continue
+            }
             if (!dir.isDirectory) throw GradleException("$id: $dir is missing (build the overlays on the server first)")
             val want = list(listFile)
             val present = dir.listFiles()!!.filter { it.isFile }.map { it.name }.toSet()
