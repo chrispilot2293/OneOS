@@ -185,10 +185,25 @@ else
   git clone -q https://github.com/MysticGSI/mysticgsi.git "$REPO/mysticgsi"
 fi
 
+# The payload fix (and later the GSI build) need protobuf, which the
+# system python does not carry: give MysticGSI its virtualenv up front
+# and run everything through it.
+if [ ! -x "$REPO/mysticgsi/.venv/bin/python" ]; then
+  say "creating MysticGSI's virtualenv"
+  if ! python3 -m venv "$REPO/mysticgsi/.venv"; then
+    sudo apt-get install -y -qq python3-venv >/dev/null
+    python3 -m venv "$REPO/mysticgsi/.venv"
+  fi
+  "$REPO/mysticgsi/.venv/bin/pip" -q install -r "$REPO/mysticgsi/requirements.txt"
+else
+  say "MysticGSI virtualenv already there"
+fi
+VENV_PY="$REPO/mysticgsi/.venv/bin/python"
+
 # Android 17 full OTAs use OP_REPLACE_ZSTD (op type 14), which MysticGSI's
 # payload extractor does not know; the OneOS patch fixes it (this is the
 # fix docs/new-guest-systems.md describes).
-if python3 "$REPO/scripts/fix-mysticgsi-payload.py" "$REPO/mysticgsi"; then :; else
+if ! "$VENV_PY" "$REPO/scripts/fix-mysticgsi-payload.py" "$REPO/mysticgsi"; then
   die "the OP_REPLACE_ZSTD payload fix failed"
 fi
 
@@ -217,12 +232,10 @@ else
 package is several GB. (An incremental OTA cannot be used: it needs the
 source build.)"
 
-  if [ ! -d "$REPO/mysticgsi/.venv" ]; then
+  if [ ! -x "$VENV_PY" ]; then
     say "creating MysticGSI's virtualenv"
     python3 -m venv "$REPO/mysticgsi/.venv"
     "$REPO/mysticgsi/.venv/bin/pip" -q install -r "$REPO/mysticgsi/requirements.txt"
-  else
-    say "MysticGSI virtualenv already there"
   fi
 
   say "building the GSI with MysticGSI (this extracts and repacks the whole"
