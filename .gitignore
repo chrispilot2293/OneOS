@@ -12,3 +12,4 @@ keystore.properties
 # Python bytecode (switcher/patches).
 __pycache__/
 *.pyc
+/mysticgsi/
