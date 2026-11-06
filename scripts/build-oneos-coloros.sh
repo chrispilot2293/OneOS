@@ -103,9 +103,9 @@ say "work dir: $WORK"
 [ "$(uname -s)" = Linux ] || die "this script runs on Linux (WSL on Windows)."
 mkdir -p "$WORK"
 AVAILABLE_KB=$(df -Pk "$WORK" | awk 'NR==2 {print $4}')
-MIN_GB="${ONEOS_MIN_GB:-40}"
+MIN_GB="${ONEOS_MIN_GB:-65}"
 [ "$AVAILABLE_KB" -lt $((MIN_GB * 1048576)) ] && \
-  die "only $((AVAILABLE_KB / 1048576)) GB free in $WORK; the build needs ~$MIN_GB GB (firmware package, extraction, ~14.7 GB GSI). Free space, point ONEOS_BUILD_DIR elsewhere, or lower ONEOS_MIN_GB if you know better."
+  die "only $((AVAILABLE_KB / 1048576)) GB free in $WORK; the build needs ~$MIN_GB GB at peak (the firmware package, ~20 GB of extracted payload partitions, a ~20 GB staging copy, and the ~14.7 GB GSI). Free space, point ONEOS_BUILD_DIR elsewhere, or lower ONEOS_MIN_GB if you know better."
 [ -n "$FIRMWARE" ] || [ -n "$PREBUILT" ] || {
   echo
   say "no --firmware and no --prebuilt given."
@@ -238,13 +238,28 @@ source build.)"
     "$REPO/mysticgsi/.venv/bin/pip" -q install -r "$REPO/mysticgsi/requirements.txt"
   fi
 
+  # Stale staging from an interrupted run can hold tens of GB; it is
+  # transient, so drop it before extracting again.
+  if [ -d "$REPO/mysticgsi/tmp" ]; then
+    say "removing stale MysticGSI staging (tmp/)"
+    rm -rf "$REPO/mysticgsi/tmp" || \
+      die "could not remove $REPO/mysticgsi/tmp - if this complains about a
+read-only file system, the WSL disk hit I/O errors: run 'wsl --shutdown'
+from Windows, restart WSL, and check free space below."
+  fi
+
   say "building the GSI with MysticGSI (this extracts and repacks the whole"
   say "system - expect an hour or more, and tens of GB of disk)"
   DEBLOAT_FLAG="--no-debloat"
   [ "$DEBLOAT" = 1 ] && DEBLOAT_FLAG=""
   ( cd "$REPO/mysticgsi" && .venv/bin/python cli.py build "$GSI_NAME" \
       "$FIRMWARE_PATH" --type coloros $DEBLOAT_FLAG ) || \
-    die "the MysticGSI build failed (its output above names the cause)"
+    die "the MysticGSI build failed (its output above names the cause).
+An 'Input/output error', 'Read-only file system' or 'Bus error' above is
+not a build problem: the WSL disk filled up (its virtual disk grows on
+the Windows drive). Run 'df -h /root' here, check the free space on the
+Windows drive too, free ~65 GB (or move the WSL distro to another drive),
+then re-run this script - it picks up where it left off."
 
   GSI_IMG=$(find "$REPO/mysticgsi/out/$GSI_NAME" -name "$GSI_NAME-system.img" 2>/dev/null | head -1)
   [ -n "$GSI_IMG" ] && [ -f "$GSI_IMG" ] || \
