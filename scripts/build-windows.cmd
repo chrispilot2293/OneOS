@@ -136,6 +136,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# PS 5.1's Invoke-WebRequest can use old TLS and drop large downloads;
+# curl.exe (built into Windows 10+) retries and resumes, so prefer it.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$curl = (Get-Command curl.exe -ErrorAction SilentlyContinue).Source
+if (-not $curl) { $curl = (Get-Command curl -ErrorAction SilentlyContinue).Source }
 
 # The series' sets (app-android/packages/series.txt).
 $seriesLine = Get-Content (Join-Path $Repo 'app-android\packages\series.txt') |
@@ -163,11 +168,26 @@ function Get-OneOsFile([string]$sha) {
   $dst = Join-Path $cache $sha
   if ((Test-Path $dst) -and ((Get-FileHash $dst -Algorithm SHA256).Hash -eq $sha.ToUpper())) { return }
   $tmp = "$dst.part"
-  $src = $remote[$sha]
-  if ($src -notmatch '^gh:(.+)$') { throw "no GitHub release source for $sha (only $($src))" }
+  # remote.txt: "sha gh:sets-1,<drive-id>,<drive-id>,..." - first entry is the release.
+  $src = ($remote[$sha] -split ',')[0]
+  if ($src -notmatch '^gh:(.+)$') { throw "no GitHub release source for $sha (only $($remote[$sha]))" }
   $tag = $Matches[1]
   $url = "https://github.com/fahadalijaved/OneOS-files/releases/download/$tag/$sha"
-  Invoke-WebRequest -Uri $url -OutFile $tmp
+  if ($curl) {
+    # curl retries transient failures and resumes a partial .part file.
+    & $curl -q -sS -L --fail --retry 5 --retry-delay 2 `
+      --connect-timeout 30 --continue-at - -o $tmp $url
+    if ($LASTEXITCODE -ne 0) { throw "download failed (curl exit $LASTEXITCODE): $sha" }
+  } else {
+    for ($try = 1; $try -le 3; $try++) {
+      try { Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $tmp; break }
+      catch {
+        if ($try -eq 3) { throw }
+        Write-Host "  retry $try for $sha..."
+        Start-Sleep -Seconds (3 * $try)
+      }
+    }
+  }
   $h = (Get-FileHash $tmp -Algorithm SHA256).Hash
   if ($h -ne $sha.ToUpper()) { throw "sha256 mismatch for $sha (got $h)" }
   Move-Item $tmp $dst
